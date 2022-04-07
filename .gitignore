@@ -1,6 +1,9 @@
 .gradle
 /build/
 
+./Q3/build/*
+./Q4/build/*
+
 # Ignore Gradle GUI config
 gradle-app.setting
 
