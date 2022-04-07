@@ -1,10 +1,7 @@
 import java.io.IOException;
-import java.util.StringTokenizer;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.PriorityQueue;
 import java.util.Queue;
-import java.util.TreeMap;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
