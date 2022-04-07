@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.util.StringTokenizer;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.TreeMap;
 
 import org.apache.hadoop.conf.Configuration;
@@ -16,7 +18,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 public class AvgAQI {
 
-    public class CountyAvg implements Comparable<CountyAvg> {
+    public static class CountyAvg implements Comparable<CountyAvg> {
         public String county;
         public int avg;
 
@@ -53,7 +55,7 @@ public class AvgAQI {
     }
 
     public static class MyReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        Queue<CountyAvg> q = new PriorityQueue<>();
+        Queue<CountyAvg> q = new PriorityQueue<CountyAvg>(10);
         int MAX_SIZE = 10;
         
         public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
@@ -64,13 +66,22 @@ public class AvgAQI {
                 ++count;
             }
             int avg = sum / count;
-            CountyAvg ca = new CountyAvg(Text.toString(), avg);
-
-            if(q.size() )
+            CountyAvg ca = new CountyAvg(key.toString(), avg);
+            if(q.size() >= MAX_SIZE) {
+                if(q.peek().compareTo(ca) < 0) {
+                    q.poll();
+                    q.offer(ca);
+                }
+            } else {
+                q.offer(ca);
+            }
         }
 
-        public void cleanup(Context context) {
-            // context.write pls
+        public void cleanup(Context context) throws IOException, InterruptedException {
+            while(q.size() != 0) {
+                CountyAvg ca = q.poll();
+                context.write(new Text(ca.county), new IntWritable(ca.avg));
+            }
         }
     }
 
