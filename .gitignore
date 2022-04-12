@@ -1,8 +1,12 @@
 .gradle
 /build/
 
+./Q2/build/*
+./Q2/bin/*
 ./Q3/build/*
+./Q3/bin/*
 ./Q4/build/*
+./Q4/bin/*
 
 # Ignore Gradle GUI config
 gradle-app.setting
