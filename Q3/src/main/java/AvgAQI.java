@@ -5,6 +5,7 @@ import java.util.Queue;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -17,16 +18,16 @@ public class AvgAQI {
 
     public static class CountyAvg implements Comparable<CountyAvg> {
         public String county;
-        public int avg;
+        public double avg;
 
-        public CountyAvg(String county, int avg) {
+        public CountyAvg(String county, Double avg) {
             this.county = county;
             this.avg = avg;
         }
 
         public int compareTo(CountyAvg other) {
-            int diff = this.avg - other.avg;
-            return diff;
+            double diff = this.avg - other.avg;
+            return (int)diff;
         }
 
         public String toString() {
@@ -51,7 +52,7 @@ public class AvgAQI {
         }
     }
 
-    public static class MyReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+    public static class MyReducer extends Reducer<Text, IntWritable, Text, DoubleWritable> {
         Queue<CountyAvg> q = new PriorityQueue<CountyAvg>(10);
         int MAX_SIZE = 10;
         
@@ -62,7 +63,7 @@ public class AvgAQI {
                 sum += val.get();
                 ++count;
             }
-            int avg = sum / count;
+            double avg = sum / (double)count;
             CountyAvg ca = new CountyAvg(key.toString(), avg);
             if(q.size() >= MAX_SIZE) {
                 if(q.peek().compareTo(ca) < 0) {
@@ -77,7 +78,7 @@ public class AvgAQI {
         public void cleanup(Context context) throws IOException, InterruptedException {
             while(q.size() != 0) {
                 CountyAvg ca = q.poll();
-                context.write(new Text(ca.county), new IntWritable(ca.avg));
+                context.write(new Text(ca.county), new DoubleWritable(ca.avg));
             }
         }
     }
@@ -88,8 +89,8 @@ public class AvgAQI {
         job.setJarByClass(AvgAQI.class);
         job.setMapperClass(MyMapper.class);
         job.setReducerClass(MyReducer.class);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(IntWritable.class);
         FileInputFormat.addInputPath(job, new Path(args[1]));
         FileOutputFormat.setOutputPath(job, new Path(args[2]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
