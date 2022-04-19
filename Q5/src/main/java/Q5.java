@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.TreeMap;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Comparator;
 import java.time.temporal.WeekFields;
 
 import org.apache.hadoop.conf.Configuration;
@@ -41,7 +42,7 @@ public class Q5 {
       int weekNumber = epochDate.get(weekFields.weekOfWeekBasedYear());
       int year = epochDate.getYear();
       String data = "" + GIS+","+weekNumber+","+year+",";
-      timeInfo.set(data);                         //key
+      timeInfo.set(line[2]);                         //key
       aqi.set(aqiScore);                        //value    
       context.write(timeInfo,aqi);             //Pass (CountyWeekYear, aqi) to reducer
     }
@@ -85,13 +86,14 @@ public class Q5 {
 
   public static class CountyReducer extends Reducer<Text,Text,Text,DoubleWritable> {          //Reducer 2                                                    
     
+    
     public void reduce(Text key, Iterable<Text> aqis, Context context) throws IOException, InterruptedException { //<County, WeekYearAvgAqi>
       DoubleWritable greatestChange = new DoubleWritable(); 
       TreeMap<String, String> sortedAqiPerWeekYear = new TreeMap<>(); //used to sort the Aqis by week for each county
       for(Text WeekYearT : aqis){
         String WeekYear = WeekYearT.toString();
         String[] line = WeekYear.split(",");
-        sortedAqiPerWeekYear.put((line[0] + line[1]) , line[2]); //sort by <WeekYear>. Values are the aqis
+        sortedAqiPerWeekYear.put(line[1] + line[0] , line[2]); //sort by <WeekYear>. Values are the aqis
       }
 
       ArrayList<String> listOfAverageInOrder = new ArrayList<>();
@@ -110,7 +112,9 @@ public class Q5 {
       greatestChange.set(Maxchange);
       context.write(key, greatestChange);
    }
+   
 }
+
   
 
   public static void main(String[] args) throws Exception {
