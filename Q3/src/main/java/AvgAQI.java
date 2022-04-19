@@ -1,7 +1,7 @@
 import java.io.IOException;
 import java.time.Instant;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -20,14 +20,13 @@ public class AvgAQI {
         public String county;
         public double avg;
 
-        public CountyAvg(String county, Double avg) {
+        public CountyAvg(String county, double avg) {
             this.county = county;
             this.avg = avg;
         }
 
         public int compareTo(CountyAvg other) {
-            double diff = this.avg - other.avg;
-            return (int)diff;
+            return new Double(this.avg).compareTo(new Double(other.avg));
         }
 
         public String toString() {
@@ -39,8 +38,8 @@ public class AvgAQI {
         // map api in 2020 to each county
 
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-            Instant min_year = Instant.ofEpochMilli(1577840400000L); // start of 2020
-            Instant max_year = Instant.ofEpochMilli(1609462800000L); // start of 2021
+            Instant min_year = Instant.ofEpochMilli(1577836800000L); // start of 2020
+            Instant max_year = Instant.ofEpochMilli(1609459199000L); // start of 2021
 
             String[] line = value.toString().split(",");
             Instant entry_time = Instant.ofEpochMilli(Long.parseLong(line[2]));
@@ -53,10 +52,10 @@ public class AvgAQI {
     }
 
     public static class MyReducer extends Reducer<Text, IntWritable, Text, DoubleWritable> {
-        Queue<CountyAvg> q = new PriorityQueue<CountyAvg>(10);
-        int MAX_SIZE = 10;
+        List<CountyAvg> big_list = new ArrayList<CountyAvg>();
         
         public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            
             int sum = 0;
             int count = 0;
             for (IntWritable val : values) {
@@ -65,19 +64,13 @@ public class AvgAQI {
             }
             double avg = sum / (double)count;
             CountyAvg ca = new CountyAvg(key.toString(), avg);
-            if(q.size() >= MAX_SIZE) {
-                if(q.peek().compareTo(ca) < 0) {
-                    q.poll();
-                    q.offer(ca);
-                }
-            } else {
-                q.offer(ca);
-            }
+            big_list.add(ca);
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException {
-            while(q.size() != 0) {
-                CountyAvg ca = q.poll();
+            big_list.sort(null);
+            for(int i = 0; i < 10; i++) {
+                CountyAvg ca = big_list.remove(0);
                 context.write(new Text(ca.county), new DoubleWritable(ca.avg));
             }
         }
@@ -89,6 +82,7 @@ public class AvgAQI {
         job.setJarByClass(AvgAQI.class);
         job.setMapperClass(MyMapper.class);
         job.setReducerClass(MyReducer.class);
+        job.setNumReduceTasks(1);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(IntWritable.class);
         FileInputFormat.addInputPath(job, new Path(args[1]));
