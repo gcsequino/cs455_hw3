@@ -1,5 +1,0 @@
-AvgAQI.java
- AvgAQI
- AvgAQI$CountyAvg
- AvgAQI$MyMapper
- AvgAQI$MyReducer
