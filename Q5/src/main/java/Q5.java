@@ -41,8 +41,8 @@ public class Q5 {
       WeekFields weekFields = WeekFields.of(Locale.getDefault()); 
       int weekNumber = epochDate.get(weekFields.weekOfWeekBasedYear());
       int year = epochDate.getYear();
-      String data = "" + GIS+","+weekNumber+","+year+",";
-      timeInfo.set(line[2]);                         //key
+      String data = String.format("%s,%02d,%d", GIS, weekNumber, year);
+      timeInfo.set(data);                         //key
       aqi.set(aqiScore);                        //value    
       context.write(timeInfo,aqi);             //Pass (CountyWeekYear, aqi) to reducer
     }
@@ -61,7 +61,7 @@ public class Q5 {
       Double meanAqiForEachWeek = sum / size;                                //mean of AQI for that County,in that year, in that week. 
       Text keyCopy = new Text(key);
       MeanAqiValue.set(meanAqiForEachWeek);                     
-      context.write(key,MeanAqiValue);              // <UniqueWeek, Average Aqi>
+      context.write(keyCopy,MeanAqiValue);              // <UniqueWeek, Average Aqi>
 
       //meanAqiPerDay.put(keyCopy, meanAqiForEachWeek); 
     }
@@ -76,7 +76,10 @@ public class Q5 {
     public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
       String[] line = value.toString().split(",");  //Split each line (GIS,Week,Year,avgaqi)
       String county = line[0]; //use county has my key
-      String WeekYearAvgAqi =  ""+ line[1]+"," + line[2]+"," + line[3];   // the rest of the info as my value
+      String week = line[1];
+      String year = line[2];
+      String avgaqi = line[3];
+      String WeekYearAvgAqi =  ""+ week+"," + year+"," + avgaqi;   // the rest of the info as my value
       WeekYearAvgAqi = WeekYearAvgAqi.trim(); 
       WeekYearAqi.set(WeekYearAvgAqi); //value
       GISInfo.set(county);    //key                         
@@ -86,18 +89,20 @@ public class Q5 {
 
   public static class CountyReducer extends Reducer<Text,Text,Text,DoubleWritable> {          //Reducer 2                                                    
     
-    
-    public void reduce(Text key, Iterable<Text> aqis, Context context) throws IOException, InterruptedException { //<County, WeekYearAvgAqi>
+    public void reduce(Text county, Iterable<Text> aqis, Context context) throws IOException, InterruptedException { //<County, WeekYearAvgAqi>
       DoubleWritable greatestChange = new DoubleWritable(); 
-      TreeMap<String, String> sortedAqiPerWeekYear = new TreeMap<>(); //used to sort the Aqis by week for each county
+      TreeMap<String, String> sortedAqiPerYearWeek = new TreeMap<>(); //used to sort the Aqis by year,week for each county
       for(Text WeekYearT : aqis){
         String WeekYear = WeekYearT.toString();
         String[] line = WeekYear.split(",");
-        sortedAqiPerWeekYear.put(line[1] + line[0] , line[2]); //sort by <WeekYear>. Values are the aqis
+        String week = line[0];
+        String year = line[1];
+        String avgaqi = line[2];
+        sortedAqiPerYearWeek.put((year + week) , avgaqi); //sort by <YearWeek>. Values are the aqis
       }
 
       ArrayList<String> listOfAverageInOrder = new ArrayList<>();
-      for(Map.Entry<String,String> entry : sortedAqiPerWeekYear.entrySet()) {
+      for(Map.Entry<String,String> entry : sortedAqiPerYearWeek.entrySet()) {
         String value = entry.getValue();
       
         listOfAverageInOrder.add(value);
@@ -105,12 +110,13 @@ public class Q5 {
 
       Double Maxchange = 0.0;
       for(int i = 0;i<listOfAverageInOrder.size()-1;i++){
-        if(Double.parseDouble(listOfAverageInOrder.get(i+1)) - Double.parseDouble(listOfAverageInOrder.get(i)) > Maxchange){
+        if(Math.abs(Double.parseDouble(listOfAverageInOrder.get(i+1)) - Double.parseDouble(listOfAverageInOrder.get(i))) > Math.abs(Maxchange)) {
           Maxchange = Double.parseDouble(listOfAverageInOrder.get(i+1)) - Double.parseDouble(listOfAverageInOrder.get(i));
         }
       }
+      Text keyCopy = new Text(county);
       greatestChange.set(Maxchange);
-      context.write(key, greatestChange);
+      context.write(keyCopy, greatestChange);
    }
    
 }
@@ -119,6 +125,7 @@ public class Q5 {
 
   public static void main(String[] args) throws Exception {
     Configuration conf = new Configuration();
+    conf.set("mapred.textoutputformat.separator", ",");
     Job job = Job.getInstance(conf, "First Mapper");
     job.setJarByClass(Q5.class);
     job.setMapperClass(UniqueWeekMapper.class);
