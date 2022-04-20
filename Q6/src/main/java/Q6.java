@@ -41,22 +41,22 @@ public class Q6 {
       int weekNumber = epochDate.get(weekFields.weekOfWeekBasedYear());
       int year = epochDate.getYear();
       String data = String.format("%d , %d", year, aqiScore); // year aqi 
-      String WeekGIS = String.format("%d , %s", weekNumber, GIS); // Week GIS 
+      String weekGIS = String.format("%d , %s", weekNumber, GIS); // Week GIS 
       
-      WeekGIS.set(WeekGIS);          // key               
+      WeekGIS.set(weekGIS);          // key               
       YearAqi.set(data);                        //value         
       context.write(WeekGIS,YearAqi);                 
     }
   }
   
   //Reducer 1
-  public static class YearAQI extends Reducer<Text,IntWritable,Text,DoubleWritable> { 
+  public static class YearAQI extends Reducer<Text,Text,Text,DoubleWritable> { 
     private DoubleWritable MeanAqiValue = new DoubleWritable();
-    public void reduce(Text key, Iterable<IntWritable> aqis, Context context) throws IOException, InterruptedException {
+    public void reduce(Text key, Iterable<Text> aqis, Context context) throws IOException, InterruptedException {
       TreeMap<String, String> sortYear = new TreeMap<>(); 
       for(Text YearAqi : aqis){
-        String YearAqi = WeekYearT.toString();
-        String[] line = YearAqi.split(",");
+        String YearAqiString = YearAqi.toString();
+        String[] line = YearAqiString.split(",");
         sortYear.put(line[0], line[1]); // sort by year
       }
 
